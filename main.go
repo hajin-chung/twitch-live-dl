@@ -16,32 +16,32 @@ import (
 
 type CacheItem struct {
 	url string
-	ttl  time.Time
+	ttl time.Time
 }
 
 type Cache map[string]*CacheItem
 
 func main() {
-  urlCache := Cache{}
+	urlCache := Cache{}
 	app := fiber.New()
 	app.Use(logger.New())
 
-  app.Get("/cache", func(c *fiber.Ctx) error {
-    data, err := json.Marshal(urlCache)
-    if err != nil {
-      return c.Status(500).SendString("cannot marshal cache")
-    }
-    
-    return c.Send(data)
-  })
+	app.Get("/cache", func(c *fiber.Ctx) error {
+		data, err := json.Marshal(urlCache)
+		if err != nil {
+			return c.Status(500).SendString("cannot marshal cache")
+		}
+
+		return c.Send(data)
+	})
 
 	app.Get("/:login", func(c *fiber.Ctx) error {
 		login := c.Params("login")
 
-    cache := urlCache[login]
-    if cache != nil && time.Now().Compare(cache.ttl) == -1 {
-      return c.Redirect(cache.url) 
-    }
+		cache := urlCache[login]
+		if cache != nil && time.Now().Compare(cache.ttl) == -1 {
+			return c.Redirect(cache.url)
+		}
 
 		playbackToken, err := GetPlaybackToken(login)
 		if err != nil {
@@ -49,10 +49,10 @@ func main() {
 		}
 
 		url := BuildHlsUrl(login, *playbackToken)
-    urlCache[login] = &CacheItem {
-      url: url,
-      ttl: time.Now().Add(time.Hour * 16),
-    }
+		urlCache[login] = &CacheItem{
+			url: url,
+			ttl: time.Now().Add(time.Hour * 16),
+		}
 
 		return c.Redirect(url)
 	})
