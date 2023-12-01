@@ -35,26 +35,37 @@ func main() {
 		return c.Send(data)
 	})
 
-	app.Get("/:login", func(c *fiber.Ctx) error {
+	app.Get("/:login.m3u8", func(c *fiber.Ctx) error {
 		login := c.Params("login")
+		var url string
 
 		cache := urlCache[login]
 		if cache != nil && time.Now().Compare(cache.ttl) == -1 {
-			return c.Redirect(cache.url)
+			url = cache.url
+		} else {
+			playbackToken, err := GetPlaybackToken(login)
+			if err != nil {
+				return c.Status(500).SendString("bad login")
+			}
+
+			url = BuildHlsUrl(login, *playbackToken)
+			urlCache[login] = &CacheItem{
+				url: url,
+				ttl: time.Now().Add(time.Hour * 16),
+			}
 		}
 
-		playbackToken, err := GetPlaybackToken(login)
+		res, err := http.Get(url)
 		if err != nil {
-			return c.Status(500).SendString("bad login")
+			return c.Status(500).SendString("bad m3u8 url")
 		}
 
-		url := BuildHlsUrl(login, *playbackToken)
-		urlCache[login] = &CacheItem{
-			url: url,
-			ttl: time.Now().Add(time.Hour * 16),
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return c.Status(500).SendString("cannot read body")
 		}
 
-		return c.Redirect(url)
+		return c.Type("application/vnd.apple.mpegurl").Send(body)
 	})
 
 	app.Listen(":8838")
